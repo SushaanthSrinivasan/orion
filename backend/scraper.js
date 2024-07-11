@@ -2,6 +2,7 @@ const axios = require("axios");
 const cheerio = require("cheerio");
 const robotsParser = require("robots-parser");
 const url = require("url");
+const { convert } = require("html-to-text");
 
 const MAX_CONCURRENT_REQUESTS = 5;
 
@@ -16,13 +17,29 @@ async function sleep(ms) {
 function normalizeURL(pageURL) {
 	const parsedURL = new URL(pageURL);
 	parsedURL.hash = "";
+	parsedURL.search = "";
 	return parsedURL.toString();
+}
+
+function clean(input) {
+	const regexes = [/\[[^\]]*\]/g];
+
+	output = input;
+	regexes.forEach((regex) => {
+		output = output.replace(regex, "");
+	});
+
+	output = output.trim();
+	return output;
 }
 
 async function fetchHTML(pageURL) {
 	try {
 		const { data } = await axios.get(pageURL);
-		return cheerio.load(data);
+		const $ = cheerio.load(data);
+		// console.log(data);
+		// return cheerio.load(data);
+		return { htmlData: data, $: $ };
 	} catch (error) {
 		console.error(`Error fetching ${pageURL}:`, error.message);
 		return null;
@@ -64,20 +81,26 @@ async function scrapePage(baseURL, startURL, robots, threshold) {
 		visitedURLs.add(normalizedURL);
 		visitedURLsArray.push(normalizedURL);
 
-		if (robots.isDisallowed(normalizedURL)) {
-			console.log(`Skipping disallowed URL: ${normalizedURL}`);
-			continue;
-		}
+		// if (robots.isDisallowed(normalizedURL)) {
+		// 	console.log(`Skipping disallowed URL: ${normalizedURL}`);
+		// 	continue;
+		// }
 
 		// Use limit to control concurrency
 		await limit(async () => {
-			const $ = await fetchHTML(normalizedURL);
-			if (!$) return;
+			// const $ = await fetchHTML(normalizedURL);
+			// if (!$) return;
 
-			console.log(normalizedURL);
+			let { htmlData, $ } = await fetchHTML(normalizedURL);
+			let pageText = clean(convert(htmlData, { wordwrap: 130 }));
 
-			const pageText = $("body").text().trim();
+			console.log(pageText);
+			// console.log(normalizedURL);
+
+			// const pageText = $("html").text().trim();
 			scrapedContent[normalizedURL] = pageText;
+
+			console.log(pageText);
 
 			const links = [];
 			$("a").each((i, link) => {

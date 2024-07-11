@@ -3,6 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
+
 const upload = multer();
 const app = express();
 
@@ -21,9 +22,9 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { scrapeWebpages } = require("./scraper");
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
-const threshold = 30;
+const threshold = 20;
 
 let flush = false;
 let currentBaseURL = "";
@@ -56,15 +57,22 @@ app.get("/", (req, res) => {
 
 app.post("/search", upload.none(), async (req, res) => {
 	console.log("Request received");
-	// console.log(req.body);
 
 	const userPrompt = req.body.prompt;
 	console.log(`prompt: ${userPrompt}`);
 
-	const url = req.body.url;
-	console.log(`url: ${url}`);
+	const urlTab = req.body.urlTab;
+	console.log(`urlTab: ${urlTab}`);
 
-	const baseUrl = getBaseUrl(url, 0);
+	const urlUser = req.body.urlUser;
+	console.log(`urlUser: ${urlUser}`);
+
+	let baseUrl = "";
+	if (urlUser !== "") {
+		baseUrl = urlUser;
+	} else {
+		baseUrl = getBaseUrl(urlTab, 0);
+	}
 	console.log(`baseUrl: ${baseUrl}`);
 
 	if (currentBaseURL !== baseUrl) {
@@ -77,10 +85,16 @@ app.post("/search", upload.none(), async (req, res) => {
 
 	const { scrapedContent, visitedURLsArray } = await scrapeWebpages(
 		baseUrl,
-		30,
+		threshold,
 		flush
 	);
-	console.log(`visitedURLsArray: ${visitedURLsArray}`);
+
+	// console.log("Visited URLs:");
+	// visitedURLsArray.forEach((url) => {
+	// 	console.log(`URL: ${url}`);
+	// });
+
+	// console.log(`visitedURLsArray: ${visitedURLsArray}`);
 	// console.log(`scrapedContent: ${scrapedContent}`);
 
 	let totalChars = 0;
@@ -96,13 +110,14 @@ app.post("/search", upload.none(), async (req, res) => {
 	let prompt = `
 	You are a browser asistant who answers queries from users and also an expert web scraper. You are given the html content of multiple pages combined as context, along with a user query.
 	Answer the user query based on the context. Don't mention that you are an expert web scraper, or anything related to web scraping.
-	Answer with the proper context without encouraging the user to perform any other actions. If the answer to the question doesnt seem to be in the given HTML context tell the user that that information is not available in the context.
+	Answer with the proper context without encouraging the user to perform any other actions. 
+	If the answer to the question doesnt seem to be in the information given, return "Sorry, I could not find that information among the searched webpages.".
 	Talk as if you are a third person who reads the context and answers the user query, and don't endorse any of the context. Don't talk as if you are affiliated with the context.
-	Return the answer with properly formatted markdown syntax.
+	Return the answer with properly formatted markdown syntax. Don't be too verbose.
 
 	User query:
 	${userPrompt}
-	
+
 	HTML context:
 	${allText}`;
 
@@ -122,8 +137,10 @@ app.post("/search", upload.none(), async (req, res) => {
 		});
 	}
 
-	console.log("https://picnichealth.com/picnicai");
-	console.log(scrapedContent["https://picnichealth.com/picnicai"]);
+	// ---------------------------------------------
+
+	// console.log("https://picnichealth.com/picnicai");
+	// console.log(scrapedContent["https://picnichealth.com/picnicai"]);
 
 	// res.json({
 	// 	status: "success",
@@ -135,43 +152,3 @@ app.post("/search", upload.none(), async (req, res) => {
 app.listen(port, () => {
 	console.log(`Server running at http://localhost:${port}`);
 });
-
-// const express = require("express");
-// const cors = require("cors");
-// const app = express();
-
-// app.use(cors());
-// app.use(express.json());
-// app.use(express.urlencoded({ extended: true }));
-
-// const port = 5000;
-
-// const { GoogleGenerativeAI } = require("@google/generative-ai");
-// const genAI = new GoogleGenerativeAI(process.env.API_KEY);
-// const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-// async function gemini(prompt) {
-// 	const result = await model.generateContent(prompt);
-// 	const response = await result.response;
-// 	return response.text();
-// }
-
-// app.get("/", (req, res) => {
-// 	res.send("Hello World!");
-// });
-
-// app.post("/search", (req, res) => {
-// 	console.log("Req recieved");
-
-// 	console.log(req.body);
-
-// 	res.json({
-// 		status: "success",
-// 		statusCode: 200,
-// 		result: { message: "Hello World!" },
-// 	});
-// });
-
-// app.listen(port, () => {
-// 	console.log(`Server running at http://localhost:${port}`);
-// });

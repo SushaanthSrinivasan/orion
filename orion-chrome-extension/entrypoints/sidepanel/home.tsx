@@ -1,5 +1,5 @@
 // HomePage.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card.tsx";
 import { useTranslation } from "react-i18next";
 
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 import ReactMarkdown from "react-markdown";
 
@@ -29,25 +30,13 @@ const sendPostRequest = async (url: string, data: any) => {
 	}
 };
 
-const getUrl = async () => {
-	try {
-		const tabs = await browser.tabs.query({
-			active: true,
-			currentWindow: true,
-		});
-		if (tabs[0] && tabs[0].url) {
-			return tabs[0].url;
-		}
-	} catch (error) {
-		console.error("Error getting current tab:", error);
-	}
-};
-
 export function Home() {
 	const [prompt, setPrompt] = useState("");
 	const [output, setOutput] = useState("");
+	const [urlUser, setUrlUser] = useState("");
+	const [isUrlInputActive, setIsUrlInputActive] = useState(true);
 
-	const getUrl = async () => {
+	const getURL = async () => {
 		const tabs = await browser.tabs.query({
 			active: true,
 			currentWindow: true,
@@ -59,10 +48,13 @@ export function Home() {
 		setOutput("Processing...");
 		try {
 			const formData = new FormData();
+
 			formData.append("prompt", prompt);
 
-			const url = await getUrl();
-			formData.append("url", url);
+			const urlTab = await getURL();
+			formData.append("urlTab", urlTab);
+
+			formData.append("urlUser", urlUser);
 
 			const data = await sendPostRequest(
 				"http://localhost:5000/search",
@@ -75,11 +67,28 @@ export function Home() {
 		}
 	};
 
+	// useEffect(() => {
+	// 	const updateCurrentTabURL = async () => {
+	// 		const urlTab = await getURL();
+	// 		setUrlUser(urlTab);
+	// 	};
+	// 	updateCurrentTabURL();
+	// 	browser.tabs.onActivated.addListener(updateCurrentTabURL);
+	// 	return () => {
+	// 		browser.tabs.onActivated.removeListener(updateCurrentTabURL);
+	// 	};
+	// }, []);
+
 	return (
 		<div>
-			<div className="flex w-full max-w-sm items-center space-x-2">
+			<div className="flex w-full items-center space-x-2">
 				<div className="grid w-full gap-1.5">
 					<h2 className="text-lg font-semibold">Send a message</h2>
+					<Input
+						placeholder="Base URL"
+						value={urlUser}
+						onChange={(e) => setUrlUser(e.target.value)}
+					/>
 					<Textarea
 						placeholder="Type your message here."
 						id="message-2"
@@ -91,11 +100,11 @@ export function Home() {
 					<Button onClick={handleSubmit}>Send</Button>
 				</div>
 			</div>
-			<div className="flex w-full max-w-sm items-center space-x-2">
-				<div className="grid w-full gap-1.5 pt-4">
-					<ReactMarkdown>{output}</ReactMarkdown>
-				</div>
-			</div>
+			<ScrollArea className="flex w-full items-center space-x-2">
+				{/* <div className="grid w-full gap-1.5 pt-4"> */}
+				<ReactMarkdown>{output}</ReactMarkdown>
+				{/* </div> */}
+			</ScrollArea>
 		</div>
 	);
 }
