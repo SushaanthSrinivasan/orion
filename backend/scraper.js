@@ -3,6 +3,7 @@ const cheerio = require("cheerio");
 const robotsParser = require("robots-parser");
 const url = require("url");
 const { convert } = require("html-to-text");
+const fs = require("fs");
 
 const MAX_CONCURRENT_REQUESTS = 5;
 
@@ -37,8 +38,6 @@ async function fetchHTML(pageURL) {
 	try {
 		const { data } = await axios.get(pageURL);
 		const $ = cheerio.load(data);
-		// console.log(data);
-		// return cheerio.load(data);
 		return { htmlData: data, $: $ };
 	} catch (error) {
 		console.error(`Error fetching ${pageURL}:`, error.message);
@@ -52,7 +51,6 @@ async function checkRobotsTxt(baseURL) {
 		const { data } = await axios.get(robotsTxtURL);
 		return robotsParser(robotsTxtURL, data);
 	} catch (error) {
-		// If fetching robots.txt fails, assume no restrictions
 		return robotsParser(robotsTxtURL, "");
 	}
 }
@@ -65,7 +63,6 @@ async function scrapePage(baseURL, startURL, robots, threshold) {
 	const limit = pLimit(MAX_CONCURRENT_REQUESTS);
 
 	while (stack.length > 0) {
-		// Stop if the threshold number of pages is reached
 		if (pagesVisited >= threshold) {
 			console.log(`Reached the maximum of ${threshold} pages.`);
 			break;
@@ -86,18 +83,22 @@ async function scrapePage(baseURL, startURL, robots, threshold) {
 		// 	continue;
 		// }
 
-		// Use limit to control concurrency
 		await limit(async () => {
-			// const $ = await fetchHTML(normalizedURL);
-			// if (!$) return;
-
 			let { htmlData, $ } = await fetchHTML(normalizedURL);
 			let pageText = clean(convert(htmlData, { wordwrap: 130 }));
 
-			console.log(pageText);
-			// console.log(normalizedURL);
+			// console.log(`htmlData: \n\n${htmlData}`);
 
-			// const pageText = $("html").text().trim();
+			fs.writeFile("pageText.txt", pageText, (err) => {
+				if (err) {
+					console.error("Error writing file:", err);
+				} else {
+					console.log("File has been written successfully.");
+				}
+			});
+
+			// console.log(pageText);
+
 			scrapedContent[normalizedURL] = pageText;
 
 			console.log(pageText);
@@ -132,7 +133,6 @@ async function scrapeWebpages(baseURL, threshold, flush) {
 	const robots = await checkRobotsTxt(baseURL);
 	await scrapePage(baseURL, baseURL, robots, threshold);
 
-	// Return the scraped content and visited URLs array
 	return { scrapedContent, visitedURLsArray };
 }
 

@@ -24,3 +24,5 @@ web-ext.config.ts
 *.sw?
 
 .env
+Xenova/
+testing/

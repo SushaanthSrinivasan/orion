@@ -15,7 +15,6 @@ import axios from "axios";
 import browser from "webextension-polyfill";
 
 const sendPostRequest = async (url: string, data: any) => {
-	console.log("inside sendPostRequest");
 	try {
 		const response = await axios.post(url, data, {
 			withCredentials: false,
@@ -34,7 +33,6 @@ export function Home() {
 	const [prompt, setPrompt] = useState("");
 	const [output, setOutput] = useState("");
 	const [urlUser, setUrlUser] = useState("");
-	const [isUrlInputActive, setIsUrlInputActive] = useState(true);
 
 	const getURL = async () => {
 		const tabs = await browser.tabs.query({
@@ -53,7 +51,6 @@ export function Home() {
 
 			const urlTab = await getURL();
 			formData.append("urlTab", urlTab);
-
 			formData.append("urlUser", urlUser);
 
 			const data = await sendPostRequest(
