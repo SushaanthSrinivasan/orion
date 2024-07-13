@@ -1,9 +1,16 @@
-const axios = require("axios");
-const cheerio = require("cheerio");
-const robotsParser = require("robots-parser");
-const url = require("url");
-const { convert } = require("html-to-text");
-const fs = require("fs");
+// const axios = require("axios");
+// const cheerio = require("cheerio");
+// const robotsParser = require("robots-parser");
+// const url = require("url");
+// const { convert } = require("html-to-text");
+// const fs = require("fs");
+
+import axios from "axios";
+import cheerio from "cheerio";
+import robotsParser from "robots-parser";
+import { URL } from "url";
+import { convert } from "html-to-text";
+import { promises as fs } from "fs";
 
 const MAX_CONCURRENT_REQUESTS = 5;
 
@@ -25,7 +32,7 @@ function normalizeURL(pageURL) {
 function clean(input) {
 	const regexes = [/\[[^\]]*\]/g];
 
-	output = input;
+	let output = input;
 	regexes.forEach((regex) => {
 		output = output.replace(regex, "");
 	});
@@ -46,7 +53,8 @@ async function fetchHTML(pageURL) {
 }
 
 async function checkRobotsTxt(baseURL) {
-	const robotsTxtURL = url.resolve(baseURL, "/robots.txt");
+	// const robotsTxtURL = URL.resolve(baseURL, "/robots.txt");
+	const robotsTxtURL = new URL("/robots.txt", baseURL).href;
 	try {
 		const { data } = await axios.get(robotsTxtURL);
 		return robotsParser(robotsTxtURL, data);
@@ -107,7 +115,8 @@ async function scrapePage(baseURL, startURL, robots, threshold) {
 			$("a").each((i, link) => {
 				const href = $(link).attr("href");
 				if (href) {
-					const absoluteURL = url.resolve(normalizedURL, href);
+					// const absoluteURL = url.resolve(normalizedURL, href);
+					const absoluteURL = new URL(href, normalizedURL).href;
 					if (
 						absoluteURL.startsWith(baseURL) &&
 						!visitedURLs.has(absoluteURL)
@@ -123,7 +132,7 @@ async function scrapePage(baseURL, startURL, robots, threshold) {
 	}
 }
 
-async function scrapeWebpages(baseURL, threshold, flush) {
+export async function scrapeWebpages(baseURL, threshold, flush) {
 	if (flush) {
 		visitedURLs.clear();
 		visitedURLsArray.length = 0;
@@ -136,6 +145,6 @@ async function scrapeWebpages(baseURL, threshold, flush) {
 	return { scrapedContent, visitedURLsArray };
 }
 
-module.exports = {
-	scrapeWebpages,
-};
+// module.exports = {
+// 	scrapeWebpages,
+// };
