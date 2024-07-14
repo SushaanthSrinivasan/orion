@@ -97,13 +97,13 @@ async function scrapePage(baseURL, startURL, robots, threshold) {
 
 			// console.log(`htmlData: \n\n${htmlData}`);
 
-			fs.writeFile("pageText.txt", pageText, (err) => {
-				if (err) {
-					console.error("Error writing file:", err);
-				} else {
-					console.log("File has been written successfully.");
-				}
-			});
+			// fs.writeFile("pageText.txt", pageText, (err) => {
+			// 	if (err) {
+			// 		console.error("Error writing file:", err);
+			// 	} else {
+			// 		console.log("File has been written successfully.");
+			// 	}
+			// });
 
 			// console.log(pageText);
 

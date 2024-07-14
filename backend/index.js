@@ -8,11 +8,10 @@ import multer from "multer";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { scrapeWebpages } from "./scraper.js";
 import {
-	// initQdrantDb,
 	chunkText,
-	getEmbeddings,
 	vectorizeAndStore,
 	similaritySearch,
+	checkEntriesExist,
 } from "./qdrant_operations.js";
 
 dotenv.config();
@@ -37,7 +36,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
-const threshold = 1;
+const threshold = 20;
 
 let flush = false;
 let currentBaseURL = "";
@@ -62,6 +61,17 @@ const getBaseUrl = (url, levels = 0) => {
 		console.error("Invalid URL:", error);
 		return null;
 	}
+};
+
+const removeDuplicates = (array) => {
+	const seen = new Set();
+	return array.filter((item) => {
+		if (!seen.has(item)) {
+			seen.add(item);
+			return true;
+		}
+		return false;
+	});
 };
 
 app.get("/", (req, res) => {
@@ -96,58 +106,66 @@ app.post("/search", upload.none(), async (req, res) => {
 		flush = false;
 	}
 
-	const { scrapedContent, visitedURLsArray } = await scrapeWebpages(
-		baseURL,
-		threshold,
-		flush
-	);
+	let baseURLEntriesExist = false;
+	try {
+		baseURLEntriesExist = await checkEntriesExist("baseURL", baseURL);
+		console.log(`Entries exist: ${baseURLEntriesExist}`);
+	} catch (error) {
+		console.error("Error in main function:", error);
+	}
 
-	// console.log("Visited URLs:");
-	// visitedURLsArray.forEach((url) => {
-	// 	console.log(`URL: ${url}`);
-	// });
+	let urlEntriesExist = false;
+	try {
+		urlEntriesExist = await checkEntriesExist("url", baseURL);
+		console.log(`Entries exist: ${urlEntriesExist}`);
+	} catch (error) {
+		console.error("Error in main function:", error);
+	}
 
-	// console.log(`visitedURLsArray: ${visitedURLsArray}`);
-	// console.log(`scrapedContent: ${scrapedContent}`);
+	if (!baseURLEntriesExist && !urlEntriesExist) {
+		// scrape and store
+		const { scrapedContent, visitedURLsArray } = await scrapeWebpages(
+			baseURL,
+			threshold,
+			flush
+		);
 
-	// let totalChars = 0;
-	// let allText = "";
-	// Object.keys(scrapedContent).forEach((key) => {
-	// 	console.log(`Key: ${key}, Value: ${scrapedContent[key].substring(0, 5)}`);
-	// 	totalChars += scrapedContent[key].length;
-	// 	allText += scrapedContent[key] + "\n\n\n";
-	// });
+		// let totalChars = 0;
+		// let allText = "";
+		// Object.keys(scrapedContent).forEach((key) => {
+		// 	console.log(`Key: ${key}, Value: ${scrapedContent[key].substring(0, 5)}`);
+		// 	totalChars += scrapedContent[key].length;
+		// 	allText += scrapedContent[key] + "\n\n\n";
+		// });
 
-	// Object.keys(scrapedContent).forEach(async (key) => {
-	// 	console.log(`Key: ${key}, Value: ${scrapedContent[key].substring(0, 5)}`);
-	// 	let chunks = await chunkText(scrapedContent[key]);
-	// 	// console.log(`chunks: ${chunks}`);
-	// 	// console.log(`Type of chunks: ${typeof chunks}`);
-	// 	// console.log(`chunks: ${Object.keys(chunks)}`);
-	// 	await vectorizeAndStore(chunks, key, baseURL);
-	// });
+		// Object.keys(scrapedContent).forEach(async (key) => {
+		// 	console.log(`Key: ${key}, Value: ${scrapedContent[key].substring(0, 5)}`);
+		// 	let chunks = await chunkText(scrapedContent[key]);
+		// 	// console.log(`chunks: ${chunks}`);
+		// 	// console.log(`Type of chunks: ${typeof chunks}`);
+		// 	// console.log(`chunks: ${Object.keys(chunks)}`);
+		// 	await vectorizeAndStore(chunks, key, baseURL);
+		// });
 
-	for (const key of Object.keys(scrapedContent)) {
-		console.log(`Key: ${key}, Value: ${scrapedContent[key].substring(0, 5)}`);
-		const chunks = await chunkText(scrapedContent[key]);
-		// console.log(`chunks: ${chunks}`);
-		// console.log(`Type of chunks: ${typeof chunks}`);
-		// console.log(`chunks: ${Object.keys(chunks)}`);
-		await vectorizeAndStore(chunks, key, baseURL);
+		for (const key of Object.keys(scrapedContent)) {
+			console.log(`Key: ${key}, Value: ${scrapedContent[key].substring(0, 5)}`);
+			const chunks = await chunkText(scrapedContent[key]);
+			await vectorizeAndStore(chunks, key, baseURL);
+		}
 	}
 
 	let numResults = 5;
 	let searchResults = await similaritySearch(userPrompt, numResults);
 
 	let resultsText = "";
-	let resultsURLs = "";
+	let resultsURLs = [];
 	searchResults.forEach((result, index) => {
 		// console.log(`${index + 1}. Score: ${result.score}`);
-		// console.log(`   Text: ${result.text}`);
-		// console.log(`   ID: ${result.id}`);
+		// console.log(`Text: ${result.text}`);
+		// console.log(`ID: ${result.id}`);
 		// console.log("---");
 		resultsText += result.text + "\n\n\n";
-		resultsURLs += `${result.url}\n`;
+		resultsURLs.push(result.url);
 	});
 
 	// console.log(`totalChars: ${totalChars}`);
@@ -173,7 +191,10 @@ app.post("/search", upload.none(), async (req, res) => {
 		res.status(200).json({
 			status: "success",
 			statusCode: 200,
-			result: { message: geminiResponse + "\n\n" + resultsURLs },
+			result: {
+				message: geminiResponse,
+				resultsURLs: removeDuplicates(resultsURLs),
+			},
 		});
 	} catch (error) {
 		console.error("Error processing request:", error);

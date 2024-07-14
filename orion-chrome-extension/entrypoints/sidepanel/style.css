@@ -1,3 +1,11 @@
+:root {
+	--background: hsl(var(--background));
+	--foreground: hsl(var(--foreground));
+	--primary: hsl(var(--primary));
+	--primary-foreground: hsl(var(--primary-foreground));
+	--border-radius-lg: var(--radius); /* Example using border radius variable */
+}
+
 * {
 	padding: 0;
 	margin: 0;
@@ -6,4 +14,15 @@
 
 h2 {
 	color: aliceblue;
+}
+
+.url-card {
+	background-color: #111221;
+	/* border-radius: 5%; */
+	/* border: none; */
+}
+
+.url-card:hover {
+	border-color: hsl(var(--primary));
+	/* border-radius: 5%; */
 }

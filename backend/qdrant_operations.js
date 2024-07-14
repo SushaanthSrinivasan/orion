@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { pipeline } from "@xenova/transformers";
-import { promises as fs } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { v4 as uuidv4 } from "uuid";
@@ -110,6 +109,42 @@ export async function similaritySearch(query, topK = 5) {
 		}));
 	} catch (error) {
 		console.error("Error in similarity search:", error);
+		throw error;
+	}
+}
+
+// cheeck if website already indexed
+export async function checkEntriesExist(attribute, attributeValue) {
+	try {
+		console.log(
+			`Checking for entries with ${attribute} = ${attributeValue} in collection: ${collectionName}`
+		);
+
+		const searchResult = await client.scroll(collectionName, {
+			filter: {
+				must: [
+					{
+						key: attribute,
+						match: { value: attributeValue },
+					},
+				],
+			},
+			limit: 1, // We only need one result to confirm existence
+			with_payload: true,
+			with_vector: false, // We don't need the vector data
+		});
+
+		const exists = searchResult.points.length > 0;
+
+		if (exists) {
+			console.log(`Found entries with ${attribute} = ${attributeValue}`);
+		} else {
+			console.log(`No entries found with ${attribute} = ${attributeValue}`);
+		}
+
+		return exists;
+	} catch (error) {
+		console.error("Error checking attribute value:", error);
 		throw error;
 	}
 }
