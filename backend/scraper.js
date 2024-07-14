@@ -1,16 +1,8 @@
-// const axios = require("axios");
-// const cheerio = require("cheerio");
-// const robotsParser = require("robots-parser");
-// const url = require("url");
-// const { convert } = require("html-to-text");
-// const fs = require("fs");
-
 import axios from "axios";
 import cheerio from "cheerio";
 import robotsParser from "robots-parser";
 import { URL } from "url";
 import { convert } from "html-to-text";
-import { promises as fs } from "fs";
 
 const MAX_CONCURRENT_REQUESTS = 5;
 
@@ -53,7 +45,6 @@ async function fetchHTML(pageURL) {
 }
 
 async function checkRobotsTxt(baseURL) {
-	// const robotsTxtURL = URL.resolve(baseURL, "/robots.txt");
 	const robotsTxtURL = new URL("/robots.txt", baseURL).href;
 	try {
 		const { data } = await axios.get(robotsTxtURL);
@@ -95,27 +86,12 @@ async function scrapePage(baseURL, startURL, robots, threshold) {
 			let { htmlData, $ } = await fetchHTML(normalizedURL);
 			let pageText = clean(convert(htmlData, { wordwrap: 130 }));
 
-			// console.log(`htmlData: \n\n${htmlData}`);
-
-			// fs.writeFile("pageText.txt", pageText, (err) => {
-			// 	if (err) {
-			// 		console.error("Error writing file:", err);
-			// 	} else {
-			// 		console.log("File has been written successfully.");
-			// 	}
-			// });
-
-			// console.log(pageText);
-
 			scrapedContent[normalizedURL] = pageText;
-
-			console.log(pageText);
 
 			const links = [];
 			$("a").each((i, link) => {
 				const href = $(link).attr("href");
 				if (href) {
-					// const absoluteURL = url.resolve(normalizedURL, href);
 					const absoluteURL = new URL(href, normalizedURL).href;
 					if (
 						absoluteURL.startsWith(baseURL) &&
@@ -127,7 +103,6 @@ async function scrapePage(baseURL, startURL, robots, threshold) {
 			});
 			stack.push(...links);
 		});
-
 		pagesVisited++;
 	}
 }
@@ -144,7 +119,3 @@ export async function scrapeWebpages(baseURL, threshold, flush) {
 
 	return { scrapedContent, visitedURLsArray };
 }
-
-// module.exports = {
-// 	scrapeWebpages,
-// };

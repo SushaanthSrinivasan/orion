@@ -1,7 +1,4 @@
 import dotenv from "dotenv";
-// const express = require("express");
-// const cors = require("cors");
-// const multer = require("multer");
 import express from "express";
 import cors from "cors";
 import multer from "multer";
@@ -30,13 +27,10 @@ app.use((req, res, next) => {
 const port = 5000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// const { GoogleGenerativeAI } = require("@google/generative-ai");
-// const { scrapeWebpages } = require("./scraper");
-
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
-const threshold = 20;
+const threshold = 30;
 
 let flush = false;
 let currentBaseURL = "";
@@ -123,29 +117,11 @@ app.post("/search", upload.none(), async (req, res) => {
 	}
 
 	if (!baseURLEntriesExist && !urlEntriesExist) {
-		// scrape and store
 		const { scrapedContent, visitedURLsArray } = await scrapeWebpages(
 			baseURL,
 			threshold,
 			flush
 		);
-
-		// let totalChars = 0;
-		// let allText = "";
-		// Object.keys(scrapedContent).forEach((key) => {
-		// 	console.log(`Key: ${key}, Value: ${scrapedContent[key].substring(0, 5)}`);
-		// 	totalChars += scrapedContent[key].length;
-		// 	allText += scrapedContent[key] + "\n\n\n";
-		// });
-
-		// Object.keys(scrapedContent).forEach(async (key) => {
-		// 	console.log(`Key: ${key}, Value: ${scrapedContent[key].substring(0, 5)}`);
-		// 	let chunks = await chunkText(scrapedContent[key]);
-		// 	// console.log(`chunks: ${chunks}`);
-		// 	// console.log(`Type of chunks: ${typeof chunks}`);
-		// 	// console.log(`chunks: ${Object.keys(chunks)}`);
-		// 	await vectorizeAndStore(chunks, key, baseURL);
-		// });
 
 		for (const key of Object.keys(scrapedContent)) {
 			console.log(`Key: ${key}, Value: ${scrapedContent[key].substring(0, 5)}`);
@@ -155,20 +131,15 @@ app.post("/search", upload.none(), async (req, res) => {
 	}
 
 	let numResults = 5;
-	let searchResults = await similaritySearch(userPrompt, numResults);
+	console.log(`index baseURL: ${baseURL}`);
+	let searchResults = await similaritySearch(userPrompt, numResults, baseURL);
 
 	let resultsText = "";
 	let resultsURLs = [];
 	searchResults.forEach((result, index) => {
-		// console.log(`${index + 1}. Score: ${result.score}`);
-		// console.log(`Text: ${result.text}`);
-		// console.log(`ID: ${result.id}`);
-		// console.log("---");
 		resultsText += result.text + "\n\n\n";
 		resultsURLs.push(result.url);
 	});
-
-	// console.log(`totalChars: ${totalChars}`);
 
 	let prompt = `
 	You are a browser asistant who answers queries from users and also an expert web scraper. You are given the text content of some webpages as context, along with a user query.
@@ -187,7 +158,6 @@ app.post("/search", upload.none(), async (req, res) => {
 
 	try {
 		const geminiResponse = await gemini(prompt);
-		// const geminiResponse = "testing";
 		res.status(200).json({
 			status: "success",
 			statusCode: 200,
@@ -204,17 +174,6 @@ app.post("/search", upload.none(), async (req, res) => {
 			result: { message: "An error occurred while processing your request" },
 		});
 	}
-
-	// ---------------------------------------------
-
-	// console.log("https://picnichealth.com/picnicai");
-	// console.log(scrapedContent["https://picnichealth.com/picnicai"]);
-
-	// res.json({
-	// 	status: "success",
-	// 	statusCode: 200,
-	// 	result: { message: "testing" },
-	// });
 });
 
 app.listen(port, () => {

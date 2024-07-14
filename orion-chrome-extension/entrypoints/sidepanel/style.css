@@ -26,3 +26,31 @@ h2 {
 	border-color: hsl(var(--primary));
 	/* border-radius: 5%; */
 }
+
+.round-badge {
+	background-color: hsl(var(--primary));
+}
+
+.expand-top {
+	max-height: 300px;
+	overflow-y: auto;
+	resize: none;
+	transition: height 0.1s ease-out;
+}
+
+.expand-top::-webkit-scrollbar {
+	width: 6px;
+}
+
+.expand-top::-webkit-scrollbar-track {
+	background: #f1f1f1;
+}
+
+.expand-top::-webkit-scrollbar-thumb {
+	background: #888;
+	border-radius: 3px;
+}
+
+.expand-top::-webkit-scrollbar-thumb:hover {
+	background: #555;
+}

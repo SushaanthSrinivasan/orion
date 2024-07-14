@@ -83,7 +83,7 @@ export async function vectorizeAndStore(textChunksObj, url, baseURL) {
 }
 
 // searching similar
-export async function similaritySearch(query, topK = 5) {
+export async function similaritySearch(query, topK = 5, baseURL) {
 	try {
 		console.log("Generating embedding for query...");
 		const queryEmbedding = await getEmbeddings([query]);
@@ -92,11 +92,23 @@ export async function similaritySearch(query, topK = 5) {
 			throw new Error("Failed to generate embedding for query");
 		}
 
+		console.log(`similarity func baseURL: ${baseURL}`);
+
 		console.log("Performing search...");
 		const searchResult = await client.search(collectionName, {
 			vector: queryEmbedding[0],
 			limit: topK,
 			with_payload: true,
+			filter: {
+				must: [
+					{
+						key: "baseURL",
+						match: {
+							value: baseURL,
+						},
+					},
+				],
+			},
 		});
 
 		console.log(`Found ${searchResult.length} results`);
