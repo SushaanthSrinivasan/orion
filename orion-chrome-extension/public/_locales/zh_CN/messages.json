@@ -1,6 +1,6 @@
 {
   "extName": {
-    "message": "orion-chrome-extension"
+    "message": "Orion - Search Websites"
   },
   "extDescription": {
     "message": "这是一个chrome 浏览器扩展的模板，使用 Wxt、React、Tailwind css 、 Shadcn ui、Typescript 构建。\n支持暗黑模式和本地化"

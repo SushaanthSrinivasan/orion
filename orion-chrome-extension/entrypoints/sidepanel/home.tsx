@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardDescription, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ReactMarkdown from "react-markdown";
 
 import { ExternalLinkIcon, PaperPlaneIcon } from "@radix-ui/react-icons";
@@ -38,12 +38,15 @@ const stripURL = (url: string) => {
 
 export function Home() {
 	const [prompt, setPrompt] = useState("");
-	const [output, setOutput] = useState("");
+	const [output, setOutput] = useState(<></>);
 	const [urlUser, setUrlUser] = useState("");
 	const [resURLCards, setResURLCards] = useState(<></>);
 	const [chats, setChats] = useState([]);
 	const [textAreaContent, setTextAreaContent] = useState("");
 	const [statusMsg, setStatusMsg] = useState("");
+	const [userQuery, setUserQuery] = useState(
+		"Hi I'm Orion! I can answer any questions regarding any website you visit. How can I help you today?"
+	);
 
 	const getURL = async () => {
 		const tabs = await browser.tabs.query({
@@ -96,13 +99,40 @@ export function Home() {
 			formData.append("urlUser", urlUser);
 
 			const data = await sendPostRequest(`${SERVER_URL}/search`, formData);
-			setOutput(data.result.message);
+
+			let tempOutput = (
+				<div className="flex flex-row gap-3">
+					<Avatar className="w-7 h-7">
+						{/* <AvatarImage src="https://github.com/shadcn.png" /> */}
+						<AvatarImage src="./assets/orion-avatar.jpg" />
+						<AvatarFallback>O</AvatarFallback>
+					</Avatar>
+					<ReactMarkdown className="pt-1 pb-4 pl-1">
+						{data.result.message}
+					</ReactMarkdown>
+				</div>
+			);
+
+			setOutput(tempOutput);
 			processURLs(data.result.resultsURLs);
 			setTextAreaContent("");
 			setStatusMsg("");
+			setUserQuery(prompt);
 		} catch (err) {
 			console.error(err);
-			setOutput(`An error occurred: ${(err as Error).message}`);
+			let tempOutput = (
+				<div className="flex flex-row gap-3">
+					<Avatar className="w-7 h-7">
+						{/* <AvatarImage src="https://github.com/shadcn.png" /> */}
+						<AvatarImage src="./assets/orion-avatar.jpg" />
+						<AvatarFallback>O</AvatarFallback>
+					</Avatar>
+					<ReactMarkdown className="pt-1 pb-4 pl-1">
+						{(err as Error).message}
+					</ReactMarkdown>
+				</div>
+			);
+			setOutput(tempOutput);
 		}
 	};
 
@@ -116,14 +146,32 @@ export function Home() {
 		}
 	};
 
+	const clearChat = () => {
+		setOutput(<></>);
+		setResURLCards(<></>);
+		setUserQuery(
+			"Hi I'm Orion! I can answer any questions regarding any website you visit. How can I help you today?"
+		);
+	};
+
 	return (
 		<div>
 			<div className="flex w-full items-center space-x-2">
 				<div className="flex flex-col w-full h-screen">
 					<div className="h-4/6">
 						<ScrollArea className="flex w-full items-center gap-3">
-							<ReactMarkdown className="pt-5 pb-5 pl-1">{output}</ReactMarkdown>
-							<div className="flex flex-row flex-wrap gap-1 pl-1">
+							<div className="flex flex-row gap-3">
+								<Avatar className="w-7 h-7">
+									{/* <AvatarImage src="https://github.com/shadcn.png" /> */}
+									<AvatarImage src="/assets/user-avatar.jpg" />
+									<AvatarFallback>U</AvatarFallback>
+								</Avatar>
+								<ReactMarkdown className="pl-1 pt-1 pb-2">
+									{userQuery}
+								</ReactMarkdown>
+							</div>
+							<div className="pt-5">{output}</div>
+							<div className="flex flex-row flex-wrap gap-1 pl-11">
 								{resURLCards}
 							</div>
 						</ScrollArea>
@@ -149,9 +197,23 @@ export function Home() {
 								>
 									<PaperPlaneIcon />
 								</Button>
-								<p className="text-sm text-muted-foreground mt-2 ml-1">
-									Be specific for best results.
-								</p>
+								{/* <div className="flex flex-row">
+									<p className="text-sm text-muted-foreground mt-2 ml-1">
+										Be specific for best results.
+									</p>
+									<Button className="right-5 h-5 w-20 rounded-sm">
+										Clear Chat
+									</Button>
+								</div> */}
+
+								<div className="flex items-center space-x-2 pt-3 gap-20">
+									<p className="text-sm text-muted-foreground">
+										Be specific for best results.
+									</p>
+									<Button className="h-5 w-20 rounded-sm" onClick={clearChat}>
+										<p className="text-sm text-black">Clear Chat</p>
+									</Button>
+								</div>
 							</div>
 						</div>
 					</div>
