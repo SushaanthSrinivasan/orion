@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardDescription, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
+
 import ReactMarkdown from "react-markdown";
 
 import { ExternalLinkIcon, PaperPlaneIcon } from "@radix-ui/react-icons";
@@ -44,9 +46,12 @@ export function Home() {
 	const [chats, setChats] = useState([]);
 	const [textAreaContent, setTextAreaContent] = useState("");
 	const [statusMsg, setStatusMsg] = useState("");
-	const [userQuery, setUserQuery] = useState(
+	const [isCheckedCurrPage, setIsCheckedCurrPage] = useState(false);
+	const [isCheckedCurrURL, setIsCheckedCurrURL] = useState(false);
+	const [orionBaseOutput, setOrionBaseOutput] = useState(
 		"Hi I'm Orion! I can answer any questions regarding any website you visit. How can I help you today?"
 	);
+	const [userQuery, setUserQuery] = useState("");
 
 	const getURL = async () => {
 		const tabs = await browser.tabs.query({
@@ -97,14 +102,15 @@ export function Home() {
 			const urlTab = await getURL();
 			formData.append("urlTab", urlTab);
 			formData.append("urlUser", urlUser);
+			formData.append("isCheckedCurrPage", isCheckedCurrPage.toString());
+			formData.append("isCheckedCurrURL", isCheckedCurrURL.toString());
 
 			const data = await sendPostRequest(`${SERVER_URL}/search`, formData);
 
 			let tempOutput = (
 				<div className="flex flex-row gap-3">
 					<Avatar className="w-7 h-7">
-						{/* <AvatarImage src="https://github.com/shadcn.png" /> */}
-						<AvatarImage src="./assets/orion-avatar.jpg" />
+						<AvatarImage src="/orion-avatar.jpg" />
 						<AvatarFallback>O</AvatarFallback>
 					</Avatar>
 					<ReactMarkdown className="pt-1 pb-4 pl-1">
@@ -123,8 +129,7 @@ export function Home() {
 			let tempOutput = (
 				<div className="flex flex-row gap-3">
 					<Avatar className="w-7 h-7">
-						{/* <AvatarImage src="https://github.com/shadcn.png" /> */}
-						<AvatarImage src="./assets/orion-avatar.jpg" />
+						<AvatarImage src="/orion-avatar.jpg" />
 						<AvatarFallback>O</AvatarFallback>
 					</Avatar>
 					<ReactMarkdown className="pt-1 pb-4 pl-1">
@@ -149,9 +154,46 @@ export function Home() {
 	const clearChat = () => {
 		setOutput(<></>);
 		setResURLCards(<></>);
-		setUserQuery(
+		setUserQuery("");
+		setOrionBaseOutput(
 			"Hi I'm Orion! I can answer any questions regarding any website you visit. How can I help you today?"
 		);
+	};
+
+	const handleIsCheckedCurrPage = () => {
+		setIsCheckedCurrPage((prevState) => {
+			const newState = !prevState;
+			console.log(`isCheckedCurrPage: ${newState}`);
+
+			setIsCheckedCurrURL((prevURLState) => {
+				if (newState && prevURLState) {
+					console.log(`isCheckedCurrURL: false (was: ${prevURLState})`);
+					return false;
+				}
+				console.log(`isCheckedCurrURL: ${prevURLState}`);
+				return prevURLState;
+			});
+
+			return newState;
+		});
+	};
+
+	const handleIsCheckedCurrURL = () => {
+		setIsCheckedCurrURL((prevState) => {
+			const newState = !prevState;
+			console.log(`isCheckedCurrURL: ${newState}`);
+
+			setIsCheckedCurrPage((prevPageState) => {
+				if (newState && prevPageState) {
+					console.log(`isCheckedCurrPage: false (was: ${prevPageState})`);
+					return false;
+				}
+				console.log(`isCheckedCurrPage: ${prevPageState}`);
+				return prevPageState;
+			});
+
+			return newState;
+		});
 	};
 
 	return (
@@ -162,10 +204,22 @@ export function Home() {
 						<ScrollArea className="flex w-full items-center gap-3">
 							<div className="flex flex-row gap-3">
 								<Avatar className="w-7 h-7">
-									{/* <AvatarImage src="https://github.com/shadcn.png" /> */}
-									<AvatarImage src="/assets/user-avatar.jpg" />
-									<AvatarFallback>U</AvatarFallback>
+									<AvatarImage src="/orion-avatar.jpg" />
+									<AvatarFallback>O</AvatarFallback>
 								</Avatar>
+								<ReactMarkdown className="pl-1 pt-1 pb-2">
+									{orionBaseOutput}
+								</ReactMarkdown>
+							</div>
+							<div className="flex flex-row gap-3">
+								{userQuery !== "" ? (
+									<Avatar className="w-7 h-7">
+										<AvatarImage src="/user-avatar.jpg" />
+										<AvatarFallback>U</AvatarFallback>
+									</Avatar>
+								) : (
+									<></>
+								)}
 								<ReactMarkdown className="pl-1 pt-1 pb-2">
 									{userQuery}
 								</ReactMarkdown>
@@ -177,8 +231,27 @@ export function Home() {
 						</ScrollArea>
 					</div>
 					<div className="h-1/6">
-						<div></div>
-						<div className="fixed bottom-0 left-0 right-0 p-4">
+						<div className="flex flex-col gap-3">
+							<div className="flex flex-row items-center gap-3">
+								<p className="text-sm">Search only current webpage</p>
+								<Switch
+									id="airplane-mode"
+									checked={isCheckedCurrPage}
+									onCheckedChange={handleIsCheckedCurrPage}
+									// className="h-4.5 w-9"
+								/>
+							</div>
+							<div className="flex flex-row items-center gap-3">
+								<p className="text-sm">Use current URL as main URL</p>
+								<Switch
+									id="airplane-mode"
+									checked={isCheckedCurrURL}
+									onCheckedChange={handleIsCheckedCurrURL}
+								/>
+							</div>
+						</div>
+
+						<div className="fixed bottom-0 left-0 right-0 p-4 mr-12">
 							<div className="relative">
 								<p className="pb-1">{statusMsg}</p>
 								<Textarea
@@ -190,23 +263,14 @@ export function Home() {
 									className="bottom-10 min-h-[100px] max-h-[300px] overflow-y-auto resize-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
 								/>
 								<Button
-									className="absolute bottom-9 right-11 rounded-full"
+									className="absolute bottom-9 right-2 rounded-full"
 									onClick={handleSubmit}
 									size="icon"
 									variant="ghost"
 								>
 									<PaperPlaneIcon />
 								</Button>
-								{/* <div className="flex flex-row">
-									<p className="text-sm text-muted-foreground mt-2 ml-1">
-										Be specific for best results.
-									</p>
-									<Button className="right-5 h-5 w-20 rounded-sm">
-										Clear Chat
-									</Button>
-								</div> */}
-
-								<div className="flex items-center space-x-2 pt-3 gap-20">
+								<div className="flex items-center space-x-2 pt-3 mr-0.5 justify-between">
 									<p className="text-sm text-muted-foreground">
 										Be specific for best results.
 									</p>
