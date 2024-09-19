@@ -81,16 +81,68 @@ app.post("/search", upload.none(), async (req, res) => {
 	const urlTab = req.body.urlTab;
 	console.log(`urlTab: ${urlTab}`);
 
-	const urlUser = req.body.urlUser;
-	console.log(`urlUser: ${urlUser}`);
+	const isCheckedCurrPage = req.body.isCheckedCurrPage;
+	console.log(`isCheckedCurrPage: ${isCheckedCurrPage}`);
+
+	const isCheckedCurrURL = req.body.isCheckedCurrURL;
+	console.log(`isCheckedCurrURL: ${isCheckedCurrURL}`);
 
 	let baseURL = "";
-	if (urlUser !== "") {
-		baseURL = urlUser;
+	if (isCheckedCurrURL === "true") {
+		baseURL = urlTab;
 	} else {
 		baseURL = getBaseUrl(urlTab, 0);
 	}
 	console.log(`baseURL: ${baseURL}`);
+
+	if (isCheckedCurrPage === "true") {
+		let webpageContent = "";
+		const { scrapedContent, visitedURLsArray } = await scrapeWebpages(
+			urlTab,
+			1,
+			true
+		);
+		for (const key of Object.keys(scrapedContent)) {
+			console.log(`Key: ${key}, Value: ${scrapedContent[key]}`);
+			webpageContent = webpageContent + scrapedContent[key] + "\n\n";
+		}
+
+		let prompt = `
+		You are a browser asistant who answers queries from users and also an expert web scraper. You are given the text content of some webpages as context, along with a user query.
+		Answer the user query based on the context. Don't mention that you are an expert web scraper, or anything related to web scraping.
+		Answer with the proper context without encouraging the user to perform any other actions. 
+		If the answer to the question doesnt seem to be in the information given, return "Sorry, I could not find that information.".
+		Talk as if you are a third person who reads the context and answers the user query, and don't endorse any of the context. Don't talk as if you are affiliated with the context.
+		Return the answer with properly formatted markdown syntax. Don't be too verbose.
+
+		User query:
+		${userPrompt}
+
+		Website content:
+		${webpageContent}
+		`;
+
+		try {
+			const geminiResponse = await gemini(prompt);
+			res.status(200).json({
+				status: "success",
+				statusCode: 200,
+				result: {
+					message: geminiResponse,
+					resultsURLs: [`${urlTab}`],
+				},
+			});
+		} catch (error) {
+			console.error("Error processing request:", error);
+			res.status(500).json({
+				status: "error",
+				statusCode: 500,
+				result: { message: "An error occurred while processing your request" },
+			});
+		}
+		return;
+	}
+	console.log("outside of curr page");
 
 	if (currentBaseURL !== baseURL) {
 		currentBaseURL = baseURL;

@@ -54,7 +54,8 @@ async function checkRobotsTxt(baseURL) {
 	}
 }
 
-async function scrapePage(baseURL, startURL, robots, threshold) {
+// Depth First Search
+async function scrapePageDFS(baseURL, startURL, robots, threshold) {
 	const stack = [startURL];
 	let pagesVisited = 0;
 
@@ -83,25 +84,90 @@ async function scrapePage(baseURL, startURL, robots, threshold) {
 		// }
 
 		await limit(async () => {
-			let { htmlData, $ } = await fetchHTML(normalizedURL);
-			let pageText = clean(convert(htmlData, { wordwrap: 130 }));
-
-			scrapedContent[normalizedURL] = pageText;
-
-			const links = [];
-			$("a").each((i, link) => {
-				const href = $(link).attr("href");
-				if (href) {
-					const absoluteURL = new URL(href, normalizedURL).href;
-					if (
-						absoluteURL.startsWith(baseURL) &&
-						!visitedURLs.has(absoluteURL)
-					) {
-						links.push(absoluteURL);
-					}
+			try {
+				let { htmlData, $ } = await fetchHTML(normalizedURL);
+				if (!htmlData || !$) {
+					throw new Error(`Failed to fetch or parse HTML for ${normalizedURL}`);
 				}
-			});
-			stack.push(...links);
+
+				let pageText = clean(convert(htmlData, { wordwrap: 130 }));
+
+				scrapedContent[normalizedURL] = pageText;
+
+				const links = [];
+				$("a").each((i, link) => {
+					const href = $(link).attr("href");
+					if (href) {
+						const absoluteURL = new URL(href, normalizedURL).href;
+						if (
+							absoluteURL.startsWith(baseURL) &&
+							!visitedURLs.has(absoluteURL)
+						) {
+							links.push(absoluteURL);
+						}
+					}
+				});
+				stack.push(...links);
+			} catch (err) {
+				console.error(`Error scraping ${normalizedURL}:`, err.message);
+			}
+		});
+		pagesVisited++;
+	}
+}
+
+// Breadth First Search
+async function scrapePage(baseURL, startURL, robots, threshold) {
+	const queue = [startURL];
+	let pagesVisited = 0;
+
+	const { default: pLimit } = await import("p-limit");
+	const limit = pLimit(MAX_CONCURRENT_REQUESTS);
+
+	while (queue.length > 0) {
+		if (pagesVisited >= threshold) {
+			console.log(`Reached the maximum of ${threshold} pages.`);
+			break;
+		}
+
+		const pageURL = queue.shift();
+		const normalizedURL = normalizeURL(pageURL);
+
+		if (visitedURLs.has(normalizedURL)) {
+			continue;
+		}
+
+		visitedURLs.add(normalizedURL);
+		visitedURLsArray.push(normalizedURL);
+
+		await limit(async () => {
+			try {
+				let { htmlData, $ } = await fetchHTML(normalizedURL);
+				if (!htmlData || !$) {
+					throw new Error(`Failed to fetch or parse HTML for ${normalizedURL}`);
+				}
+
+				let pageText = clean(convert(htmlData, { wordwrap: 130 }));
+
+				scrapedContent[normalizedURL] = pageText;
+
+				const links = [];
+				$("a").each((i, link) => {
+					const href = $(link).attr("href");
+					if (href) {
+						const absoluteURL = new URL(href, normalizedURL).href;
+						if (
+							absoluteURL.startsWith(baseURL) &&
+							!visitedURLs.has(absoluteURL)
+						) {
+							links.push(absoluteURL);
+						}
+					}
+				});
+				queue.push(...links);
+			} catch (err) {
+				console.error(`Error scraping ${normalizedURL}:`, err.message);
+			}
 		});
 		pagesVisited++;
 	}

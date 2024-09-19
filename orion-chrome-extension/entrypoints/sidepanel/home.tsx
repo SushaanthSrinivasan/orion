@@ -38,10 +38,13 @@ const stripURL = (url: string) => {
 	return url.replace(/^(https?:\/\/)?(www\.)?/, "");
 };
 
+const removeWhitespace = (str: string): string => {
+	return str.replace(/\s+/g, "");
+};
+
 export function Home() {
 	const [prompt, setPrompt] = useState("");
 	const [output, setOutput] = useState(<></>);
-	const [urlUser, setUrlUser] = useState("");
 	const [resURLCards, setResURLCards] = useState(<></>);
 	const [chats, setChats] = useState([]);
 	const [textAreaContent, setTextAreaContent] = useState("");
@@ -73,9 +76,9 @@ export function Home() {
 				<Card className="pl-2 pr-2 url-card">
 					<CardHeader className="flex flex-row items-center p-0 gap-1.5">
 						<div className="rounded-full aspect-square flex items-center justify-center w-4 h-4 round-badge">
-							<p className="">{index}</p>
+							<p className="">{index + 1}</p>
 						</div>
-						<CardDescription className="text-xs truncate flex-grow pb-2 flex flex-row gap-1">
+						<CardDescription className="text-xs truncate flex-grow pb-2 flex flex-row gap-1 max-w-48">
 							{stripURL(url)}
 							<ExternalLinkIcon className="w-3 h-3 mt-1" />
 						</CardDescription>
@@ -92,8 +95,16 @@ export function Home() {
 	};
 
 	const handleSubmit = async () => {
+		if (removeWhitespace(prompt) === "") {
+			return;
+		}
+
 		setStatusMsg("Processing...");
+		clearChat();
 		setResURLCards(<></>);
+		setTextAreaContent("");
+		setUserQuery(prompt);
+
 		try {
 			const formData = new FormData();
 
@@ -101,7 +112,6 @@ export function Home() {
 
 			const urlTab = await getURL();
 			formData.append("urlTab", urlTab);
-			formData.append("urlUser", urlUser);
 			formData.append("isCheckedCurrPage", isCheckedCurrPage.toString());
 			formData.append("isCheckedCurrURL", isCheckedCurrURL.toString());
 
@@ -121,9 +131,6 @@ export function Home() {
 
 			setOutput(tempOutput);
 			processURLs(data.result.resultsURLs);
-			setTextAreaContent("");
-			setStatusMsg("");
-			setUserQuery(prompt);
 		} catch (err) {
 			console.error(err);
 			let tempOutput = (
@@ -139,11 +146,13 @@ export function Home() {
 			);
 			setOutput(tempOutput);
 		}
+		setStatusMsg("");
 	};
 
 	const handleTextAreaKeyDown = (e: any) => {
 		setPrompt(e.target.value);
-		if (e.key === "Enter") {
+		console.log(prompt);
+		if (e.key === "Enter" && removeWhitespace(e.target.value) !== "") {
 			if (!e.shiftKey) {
 				e.preventDefault();
 				handleSubmit();
@@ -197,10 +206,19 @@ export function Home() {
 	};
 
 	return (
+		// <div className="flex flex-col gap-1">
 		<div>
 			<div className="flex w-full items-center space-x-2">
 				<div className="flex flex-col w-full h-screen">
 					<div className="h-4/6">
+						<p className="text-sm inline-flex items-center gap-2">
+							<img
+								src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg"
+								alt="Rotating SVG"
+								className="rotating-svg w-5 h-5"
+							/>
+							Powered by Gemini.
+						</p>
 						<ScrollArea className="flex w-full items-center gap-3">
 							<div className="flex flex-row gap-3">
 								<Avatar className="w-7 h-7">
@@ -214,7 +232,7 @@ export function Home() {
 							<div className="flex flex-row gap-3">
 								{userQuery !== "" ? (
 									<Avatar className="w-7 h-7">
-										<AvatarImage src="/user-avatar.jpg" />
+										<AvatarImage src="/user-avatar.png" />
 										<AvatarFallback>U</AvatarFallback>
 									</Avatar>
 								) : (
