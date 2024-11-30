@@ -6,13 +6,13 @@ import { convert } from "html-to-text";
 
 const MAX_CONCURRENT_REQUESTS = 5;
 
-let visitedURLs = new Set();
-let visitedURLsArray = [];
+const visitedURLs = new Set();
+const visitedURLsArray = [];
 let scrapedContent = {};
 
-async function sleep(ms) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
+// async function sleep(ms) {
+// 	return new Promise((resolve) => setTimeout(resolve, ms));
+// }
 
 function normalizeURL(pageURL) {
 	const parsedURL = new URL(pageURL);

@@ -1,8 +1,6 @@
 import dotenv from "dotenv";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { pipeline } from "@xenova/transformers";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
 import { v4 as uuidv4 } from "uuid";
 
 dotenv.config();
@@ -42,6 +40,15 @@ export async function getEmbeddings(texts) {
 
 export async function vectorizeAndStore(textChunksObj, url, baseURL) {
 	const vectorSize = 384;
+	if (!(await client.collectionExists(collectionName))) {
+		await client.createCollection(collectionName, {
+			vectors: {
+				size: vectorSize,
+				distance: "Cosine",
+			},
+		});
+	}
+
 	console.log("Generating embeddings...");
 	const embeddings = await getEmbeddings(textChunksObj);
 
@@ -49,20 +56,20 @@ export async function vectorizeAndStore(textChunksObj, url, baseURL) {
 		([index, text], arrayIndex) => ({
 			id: uuidv4(),
 			vector: embeddings[arrayIndex],
-			payload: { text: text, url: url, baseURL: baseURL },
+			payload: { text, url, baseURL },
 		})
 	);
 
 	console.log("Storing vectors in Qdrant...");
 	await client.upsert(collectionName, {
 		wait: true,
-		points: points,
+		points,
 	});
 
 	console.log("All chunks vectorized and stored successfully.");
 }
 
-export async function similaritySearch(query, topK = 5, baseURL) {
+export async function similaritySearch(query, baseURL, topK = 5) {
 	try {
 		console.log("Generating embedding for query...");
 		const queryEmbedding = await getEmbeddings([query]);
@@ -91,6 +98,51 @@ export async function similaritySearch(query, topK = 5, baseURL) {
 		});
 
 		console.log(`Found ${searchResult.length} results`);
+
+		searchResult.map((result) =>
+			console.log(`URL: ${result.payload.url}\nText: ${result.payload.text}\n`)
+		);
+
+		return searchResult.map((result) => ({
+			score: result.score,
+			text: result.payload.text,
+			url: result.payload.url,
+			baseURL: result.payload.baseURL,
+			id: result.id,
+		}));
+	} catch (error) {
+		console.error("Error in similarity search:", error);
+		throw error;
+	}
+}
+
+export async function recommendWebpages(query, baseURL, topK = 5) {
+	try {
+		cconsole.log("Generating embedding for query...");
+		const queryEmbedding = await getEmbeddings([query]);
+
+		if (queryEmbedding.length === 0) {
+			throw new Error("Failed to generate embedding for query");
+		}
+
+		console.log(`recommend func baseURL: ${baseURL}`);
+
+		console.log("Performing recommendation search...");
+		const searchResult = await client.search(collectionName, {
+			vector: queryEmbedding[0],
+			limit: topK,
+			with_payload: true,
+			filter: {
+				must_not: [
+					{
+						key: "baseURL",
+						match: {
+							value: baseURL,
+						},
+					},
+				],
+			},
+		});
 
 		searchResult.map((result) =>
 			console.log(`URL: ${result.payload.url}\nText: ${result.payload.text}\n`)

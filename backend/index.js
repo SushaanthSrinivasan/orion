@@ -2,14 +2,20 @@ import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import multer from "multer";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { scrapeWebpages } from "./scraper.js";
 import {
 	chunkText,
 	vectorizeAndStore,
 	similaritySearch,
+	recommendWebpages,
 	checkEntriesExist,
 } from "./qdrant_operations.js";
+import GeminiProvider from "./llm_providers/gemini_provider.js";
+import OpenAIProvider from "./llm_providers/openai_provider.js";
+import OllamaProvider from "./llm_providers/ollama_provider.js";
+import AnthropicProvider from "./llm_providers/anthropic_provider.js";
+import MistralProvider from "./llm_providers/mistral_provider.js";
+import GroqProvider from "./llm_providers/groq_provider.js";
 
 dotenv.config();
 
@@ -25,21 +31,19 @@ app.use((req, res, next) => {
 });
 
 const port = 5000;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-
 const threshold = 30;
+const providers = {
+	anthropic: new AnthropicProvider(),
+	gemini: new GeminiProvider(),
+	groq: new GroqProvider(),
+	mistral: new MistralProvider(),
+	openai: new OpenAIProvider(),
+	ollama: new OllamaProvider(),
+}
 
 let flush = false;
 let currentBaseURL = "";
 
-async function gemini(prompt) {
-	const result = await model.generateContent(prompt);
-	const response = await result.response;
-	return response.text();
-}
 
 const getBaseUrl = (url, levels = 0) => {
 	try {
@@ -87,6 +91,12 @@ app.post("/search", upload.none(), async (req, res) => {
 	const isCheckedCurrURL = req.body.isCheckedCurrURL;
 	console.log(`isCheckedCurrURL: ${isCheckedCurrURL}`);
 
+	const llmProvider = req.body.llmProvider;
+	console.log(`llmProvider: ${llmProvider}`);
+
+	const modelName = req.body.modelName;
+	console.log(`modelName: ${modelName}`);
+
 	let baseURL = "";
 	if (isCheckedCurrURL === "true") {
 		baseURL = urlTab;
@@ -97,7 +107,7 @@ app.post("/search", upload.none(), async (req, res) => {
 
 	if (isCheckedCurrPage === "true") {
 		let webpageContent = "";
-		const { scrapedContent, visitedURLsArray } = await scrapeWebpages(
+		const { scrapedContent } = await scrapeWebpages(
 			urlTab,
 			1,
 			true
@@ -108,9 +118,9 @@ app.post("/search", upload.none(), async (req, res) => {
 		}
 
 		let prompt = `
-		You are a browser asistant who answers queries from users and also an expert web scraper. You are given the text content of some webpages as context, along with a user query.
+		You are a browser assistant who answers queries from users and also an expert web scraper. You are given the text content of some webpages as context, along with a user query.
 		Answer the user query based on the context. Don't mention that you are an expert web scraper, or anything related to web scraping.
-		Answer with the proper context without encouraging the user to perform any other actions. 
+		Answer with the proper context without encouraging the user to perform any other actions.
 		If the answer to the question doesnt seem to be in the information given, return "Sorry, I could not find that information.".
 		Talk as if you are a third person who reads the context and answers the user query, and don't endorse any of the context. Don't talk as if you are affiliated with the context.
 		Return the answer with properly formatted markdown syntax. Don't be too verbose.
@@ -123,12 +133,12 @@ app.post("/search", upload.none(), async (req, res) => {
 		`;
 
 		try {
-			const geminiResponse = await gemini(prompt);
+			const llmResponse = await providers[llmProvider].generateContent(prompt);
 			res.status(200).json({
 				status: "success",
 				statusCode: 200,
 				result: {
-					message: geminiResponse,
+					message: llmResponse,
 					resultsURLs: [`${urlTab}`],
 				},
 			});
@@ -169,7 +179,7 @@ app.post("/search", upload.none(), async (req, res) => {
 	}
 
 	if (!baseURLEntriesExist && !urlEntriesExist) {
-		const { scrapedContent, visitedURLsArray } = await scrapeWebpages(
+		const { scrapedContent } = await scrapeWebpages(
 			baseURL,
 			threshold,
 			flush
@@ -182,18 +192,23 @@ app.post("/search", upload.none(), async (req, res) => {
 		}
 	}
 
-	let numResults = 5;
+	const numResults = 5;
 	console.log(`index baseURL: ${baseURL}`);
-	let searchResults = await similaritySearch(userPrompt, numResults, baseURL);
+	const searchResults = await similaritySearch(userPrompt, baseURL, numResults);
+	const websiteRecommendations = await recommendWebpages(
+		userPrompt,
+		baseURL,
+		numResults,
+	)
 
 	let resultsText = "";
-	let resultsURLs = [];
+	const resultsURLs = [];
 	searchResults.forEach((result, index) => {
 		resultsText += result.text + "\n\n\n";
 		resultsURLs.push(result.url);
 	});
 
-	let prompt = `
+	const prompt = `
 	You are a browser asistant who answers queries from users and also an expert web scraper. You are given the text content of some webpages as context, along with a user query.
 	Answer the user query based on the context. Don't mention that you are an expert web scraper, or anything related to web scraping.
 	Answer with the proper context without encouraging the user to perform any other actions. 
@@ -209,13 +224,14 @@ app.post("/search", upload.none(), async (req, res) => {
 	`;
 
 	try {
-		const geminiResponse = await gemini(prompt);
+		const llmResponse = await providers[llmProvider].generateContent(prompt);
 		res.status(200).json({
 			status: "success",
 			statusCode: 200,
 			result: {
-				message: geminiResponse,
+				message: llmResponse,
 				resultsURLs: removeDuplicates(resultsURLs),
+				websiteRecommendations,
 			},
 		});
 	} catch (error) {
